@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+
+    <title>Standardized Imaging Pipelines - BIDS, fmriprep, mriqc, and other tools</title>
+
+    <meta name="description" content="Standardized Imaging Pipelines - BIDS, fmriprep, mriqc, and other tools">
+    <meta name="author" content="Björn Schiffler">
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <link rel="stylesheet" href="css/reveal.css">
+    <link rel="stylesheet" href="css/theme/moon.css" id="theme">
+
+    <!-- Theme used for syntax highlighting of code -->
+    <link rel="stylesheet" href="lib/css/zenburn.css">
+
+    <!-- Printing and PDF exports -->
+    <script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+
+    </script>
+
+    <!--[if lt IE 9]>
+    <script src="lib/js/html5shiv.js"></script>
+    <![endif]-->
+</head>
+
+<body>
+
+<div class="reveal">
+
+    <div class="slides">
+        <section>
+            <h2>Standardized Imaging Pipelines:<br>
+              BIDS, fmriprep, mriqc, and other tools</h2>
+            <p>
+                <small>Björn Schiffler<br>
+                  Post-doc in Karin Jensen's group
+                </small>
+            </p>
+        </section>
+
+        <section>
+            <h2>Outline</h2>
+            <ol>
+                <li class="fragment">The Brain Imaging Data Structure (BIDS) format</li>
+                <li class="fragment">Getting your raw Dicom data to BIDS structured Nifti files</li>
+                <li class="fragment">The "container" philosophy of reproducibility (Docker/Singularity)</li>
+                <li class="fragment">Quality control of raw data with mriqc</li>
+                <li class="fragment">Preprocessing neuroimaging data with fmriprep</li>
+            </ol>
+        </section>
+
+      <section>
+
+        <section>
+            <h3>Why standardize your data storing?</h3>
+            <ul style="list-style: none;">
+              <li class="fragment"><img width="650" src="media/bids-tools.png"/></li>
+              <li class="fragment"><a href="https://www.nature.com/articles/sdata201644"><small>Source: Gorgolewski et al., 2016, Scientific Data</small></a></li>
+            </ul>
+        </section>
+
+          <section>
+              <h3>The Brain Imaging Data Structure (BIDS) format</h3>
+              <ul style="list-style: none;">
+                <li class="fragment">
+                  <br>project/<br></li>
+                  <li class="fragment">&nbsp;&nbsp;└── subject<br></li>
+                  <li class="fragment">&nbsp;&nbsp;&nbsp;&nbsp;└── session (optional)<br></li>
+                  <li class="fragment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── acquisition</li>
+              </ul>
+          </section>
+
+          <section>
+              <h3>The Brain Imaging Data Structure (BIDS) format</h3>
+              <ul style="list-style: none; text-align: center;">
+                <li class="fragment"><img width="800" src="media/bids2.png"/></li>
+                <li class="fragment">Dicom header information gets stored in .json files</li>
+                <li class="fragment"><a href="http://bids.neuroimaging.io/bids_spec1.0.2.pdf">BIDS specification PDF</a></li>
+              </ul>
+          </section>
+
+        </section>
+
+        <section>
+
+          <section>
+              <h3>How do I get my data into BIDS format?</h3>
+              <ul>
+                  <li class="fragment">Various tools available which help with that, e.g. <i>heudiconv</i> (<b>heu</b>ristic <b>di</b>com <b>con</b>verter) or <i>dcm2bids</i></li>
+                  <li class="fragment">Conversion from .dcm to .nii on the fly usually included</li>
+                  <li class="fragment">Worst case, getting data into BIDS format can also be done manually</li>
+                  <li class="fragment">Check if correctly BIDS formatted via <a href="https://github.com/INCF/bids-validator" target="blank">BIDS validation tools</a></li>
+              </ul>
+          </section>
+
+          <section>
+              <h3>Heudiconv</h3>
+              <ul>
+                  <li class="fragment">Heudiconv uses heuristics to find the dicoms corresponding to anatomical, functional, diffusion-weighted etc. sequences</i></li>
+                  <li class="fragment">These heuristics need to be adapted to each study</li>
+                  <li class="fragment">E.g. "fmri_1" could be an fMRI session which has "fMRI" in the description and consists of 13650 dicoms</li>
+                  <li class="fragment">"fmri_2" could have "fMRI" in the description and consist of 16044 dicoms</li>
+                  <li class="fragment">Use what you know about your sequences to build a heuristic!</li>
+              </ul>
+          </section>
+
+          <section>
+              <h3>Example heuristic for heudiconv</h3>
+                  <pre class="python"><code data-trim>
+                        t1w = create_key('sub-{subject}/anat/sub-{subject}_T1w')
+                        dwi = create_key('sub-{subject}/dwi/sub-{subject}_run-{item:01d}_dwi')
+                        pressure1 = create_key('sub-{subject}/func/sub-{subject}_task-pressure_rec-{rec}_run-1_bold')
+                        pressure2 = create_key('sub-{subject}/func/sub-{subject}_task-pressure_rec-{rec}_run-2_bold')
+
+                        info = {t1w: [], dwi: [], rest: []}
+
+                        for s in seqinfo:
+                            if (s.dim3 == 176) and ('t1' in s.series_description or 'T1' in s.series_description) and not s.is_derived: # and (s.dim4 == 1)
+                                info[t1w] = [s.series_id]  # assign if a single series meets criteria
+                            if (s.dim3 == 3900) and (s.dim4 == 1) and ('dti' in s.series_description or 'DTI' in s.series_description):
+                                info[dwi].append(s.series_id)  # append if multiple series meet criteria
+                            if (s.dim3 == 13650) and ('fmri_1' in s.series_description):
+                                if s.is_motion_corrected:  # exclude non motion corrected series
+                                    info[pressure1].append({'item': s.series_id, 'rec': 'corrected'})
+                                else:
+                                    info[pressure1].append({'item': s.series_id, 'rec': 'uncorrected'})
+                    	      if (s.dim3 == 16044) and ('fmri_2' in s.series_description):
+                    	          if s.is_motion_corrected:  # exclude non motion corrected series
+                                    info[pressure2].append({'item': s.series_id, 'rec': 'corrected'})
+                                else:
+                                    info[pressure2].append({'item': s.series_id, 'rec': 'uncorrected'})
+                        return info
+                  </code></pre>
+          </section>
+
+        </section>
+
+        <section>
+
+          <section>
+              <h3>Docker containers</h3>
+                <img width="300" src="media/docker.png" style="float: right">
+                <ul style="width: 60%;">
+                  <li class="fragment">Container softwares such as Docker bundle all relevant software for processing</li>
+                  <li class="fragment">Similar to Virtual Machines, but still rely on some OS subprocesses</li>
+                  <li class="fragment">Having exact version numbers of bundled software allows for reproducibility</li>
+
+                </ul>
+          </section>
+
+          <section>
+              <h3>Containers vs. Virtual Machines</h3>
+              <ul style="list-style: none;">
+                <li class="fragment"><img width="800" src="media/vms.jpg"/></li>
+                <li class="fragment"><a href="https://www.infoworld.com/article/3204171/linux/what-is-docker-linux-containers-explained.html" target="blank"><small>Source: Infoworld</small></a></li>
+              </ul>
+          </section>
+
+          <section>
+              <h3>Docker containers</h3>
+                <img width="300" src="media/docker.png" style="float: right">
+                <ul style="width: 60%;">
+                  <li class="fragment">Example: <i>fmriprep</i> bundles e.g. Freesurfer, FSL, AFNI, ANTs, among other tools</li>
+                  <li class="fragment">You can make your own container when you have finished an analysis to archive everything needed to reproduce, e.g. package versions</li>
+                </ul>
+          </section>
+
+          <section>
+              <h3>Containers</h3>
+              <ul style="list-style: none;">
+                <li class="fragment"><img width="800" src="media/containers.png"/></li>
+                <li class="fragment"><a href="http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1005209" target="blank"><small>Source: Gorgolewski et al., 2017, PLoS Computational Biology</small></a></li>
+              </ul>
+          </section>
+
+          <section>
+              <h3>Singularity containers</h3>
+                <img width="250" src="media/singularity.png" style="float: right">
+                <ul style="width: 60%;">
+                  <li class="fragment">Docker usually needs certain admin rights</li>
+                  <li class="fragment">Singularity has been developed as a high performance cluster implementation for container based processing</li>
+                  <li class="fragment">Singularity is installed on Akalla</li>
+                </ul>
+          </section>
+
+          <section>
+              <h3>Singularity workflow</h3>
+                <img width="250" src="media/singularity.png" style="float: right">
+                <ol style="width: 60%;">
+                  <li class="fragment">Obtain the relevant container in the version that you want</li>
+                  <li class="fragment">Either directly from Singularity Hub (no conversion necessary) or from Docker Hub (docker2singularity conversion necessary)</li>
+                  <li class="fragment">Conversion with docker2singularity requires a local installation of Docker</li>
+                  <li class="fragment">Run the container</li>
+                </ol>
+          </section>
+
+          <section>
+              <h3>Container maintenance</h3>
+                <img width="250" src="media/singularity.png" style="float: right">
+                <ul style="width: 60%;">
+                  <li class="fragment">Containers can be archived in a central location on the server so that everyone has access to all of them</li>
+                  <li class="fragment">Containers can be quite large (e.g. >10 GB per container for fmriprep), so deleting old/unused containers is important</li>
+                </ul>
+          </section>
+
+        </section>
+
+        <section>
+
+          <section>
+              <h3>Quality control of imaging data with mriqc</h3>
+              <ul>
+                <li class="fragment">How do you currently check the quality of your raw data? Visual inspection?</li>
+                <li class="fragment">mriqc is a BIDS tool to compare data quality across your dataset and helps to spot systematic errors during data acquisition</li>
+              </ul>
+          </section>
+
+          <section>
+              <h3>Quality control of imaging data with mriqc</h3>
+              With data in BIDS format, running mriqc is simple:
+                <pre class="bash"><code data-trim>
+                  singularity run mriqc_container input_folder output_folder \
+                  participant --no-sub -w work_folder --verbose-reports
+                </code></pre>
+          </section>
+
+          <section>
+              <h3>Quality control of imaging data with mriqc</h3>
+              <ul style="list-style: none;">
+                <li class="fragment"><img width="800" src="media/mriqc-workflow.png"/></li>
+                <li class="fragment"><a href="http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0184661" target="blank"><small>Source: Esteban et al., 2017, PLoS ONE</small></a></li>
+              </ul>
+          </section>
+
+          <section>
+              <h3>Quality control of imaging data with mriqc</h3>
+              <ul>
+                <li class="fragment">Overview of image quality metrics (IQMs) such as Framewise Displacement (FD), DVARS, SNR etc. in your raw data</li>
+                <li class="fragment">Both for <a href="http://web.stanford.edu/group/poldracklab/mriqc/reports/anat_group.html" target="blank">anatomical</a> as well as <a href="http://web.stanford.edu/group/poldracklab/mriqc/reports/func_group.html" target="blank">functional</a> MRI data</li>
+              </ul>
+          </section>
+
+          <section>
+              <h3>Quality control of imaging data with mriqc</h3>
+              <ul style="list-style: none;">
+                <li class="fragment"><img width="500" src="media/iqms.png"/></li>
+              </ul>
+          </section>
+
+        </section>
+
+        <section>
+
+          <section>
+              <h3>Preprocessing your data with fmriprep</h3>
+              <ul>
+                <li class="fragment">Preprocessing pipeline for (f)MRI data</li>
+                <li class="fragment">Performs minimal preprocessing (skull stripping, motion correction, segmentation, coregistration, normalization etc.)</li>
+                <li class="fragment">No "controversial" steps such as smoothing</li>
+                <li class="fragment">Integration of Freesurfer for surface based processing (optional)</li>
+                <li class="fragment">Generates preprocessing quality reports in .html files</li>
+              </ul>
+          </section>
+
+          <section>
+              <h3>Preprocessing your data with fmriprep</h3>
+              With data in BIDS format, running fmriprep is simple:
+                <pre class="bash"><code data-trim>
+                  singularity run fmriprep_container input_folder \
+                  output_folder participant -w work_folder
+                </code></pre>
+          </section>
+
+          <section>
+              <h3>Preprocessing your data with fmriprep - T1</h3>
+              <ul style="list-style: none;">
+                <li class="fragment"><img width="700" src="media/workflows-2.png"/></li>
+              </ul>
+          </section>
+
+          <section>
+              <h3>Preprocessing your data with fmriprep - fMRI</h3>
+              <ul style="list-style: none;">
+                <li class="fragment"><img width="900" src="media/workflows-4.png"/></li>
+              </ul>
+          </section>
+
+          <section>
+              <h3>Preprocessing your data with fmriprep</h3>
+              <ul style="list-style: none;">
+                <li class="fragment"><a href="http://fmriprep.readthedocs.io/en/latest/_static/sample_report.html" target="blank">Example output</a></li>
+              </ul>
+          </section>
+
+        </section>
+
+        <section>
+
+          <section>
+              <h3>High level summary</h3>
+              <ol>
+                <li class="fragment">Adapt heudiconv heuristic.py to your study</li>
+                <li class="fragment">.dcm to .nii in BIDS with heudiconv</li>
+                <li class="fragment">Validate your BIDS folder structure</li>
+                <li class="fragment">Quality control with mriqc</li>
+                <li class="fragment">Preprocessing with fmriprep</li>
+                <li class="fragment">Quality check the .html output</li>
+              </ol>
+          </section>
+
+        </section>
+
+        <section>
+
+          <section>
+              <h3>Questions?</h3>
+              <ul>
+              <li class="fragment">Next: Going through a step-by-step <a href="https://github.com/bcschiffler/bids-processing-pipeline">tutorial</a></li>
+            </ul>
+          </section>
+
+        </section>
+
+      </section>
+
+
+
+
+
+
+    </div>
+
+</div>
+
+<script src="lib/js/head.min.js"></script>
+<script src="js/reveal.js"></script>
+
+<script>
+
+			// More info https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				controls: true,
+				progress: true,
+				history: true,
+				center: true,
+				zoomKey: 'shift',
+
+				transition: 'convex', // none/fade/slide/convex/concave/zoom
+
+				// More info https://github.com/hakimel/reveal.js#dependencies
+				dependencies: [
+					{ src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+					{ src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: 'plugin/zoom-js/zoom.js', async: true },
+					{ src: 'plugin/notes/notes.js', async: true }
+				]
+			});
+
+
+</script>
+
+</body>
+</html>
