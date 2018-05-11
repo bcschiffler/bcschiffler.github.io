@@ -45,8 +45,9 @@
               BIDS, fmriprep, mriqc, and other tools</h2>
             <p>
                 <small>Björn Schiffler<br>
-                  Jensen group<br>
-                  Karolinska Institutet, Stockholm, Sweden
+                  Jensen lab<br>
+                  Karolinska Institutet, Stockholm, Sweden<br>
+                  17th April 2018
                 </small>
             </p>
         </section>
@@ -120,29 +121,41 @@
           <section>
               <h3>Example heuristic for heudiconv</h3>
                   <pre class="python"><code data-trim>
-                        t1w = create_key('sub-{subject}/anat/sub-{subject}_T1w')
-                        dwi = create_key('sub-{subject}/dwi/sub-{subject}_run-{item:01d}_dwi')
-                        pressure1 = create_key('sub-{subject}/func/sub-{subject}_task-pressure_rec-{rec}_run-1_bold')
-                        pressure2 = create_key('sub-{subject}/func/sub-{subject}_task-pressure_rec-{rec}_run-2_bold')
+                        import os
 
-                        info = {t1w: [], dwi: [], rest: []}
+                        def create_key(template, outtype=('nii.gz',), annotation_classes=None):
 
-                        for s in seqinfo:
-                            if (s.dim3 == 176) and ('t1' in s.series_description or 'T1' in s.series_description) and not s.is_derived: # and (s.dim4 == 1)
-                                info[t1w] = [s.series_id]  # assign if a single series meets criteria
-                            if (s.dim3 == 3900) and (s.dim4 == 1) and ('dti' in s.series_description or 'DTI' in s.series_description):
-                                info[dwi].append(s.series_id)  # append if multiple series meet criteria
-                            if (s.dim3 == 13650) and ('fmri_1' in s.series_description):
-                                if s.is_motion_corrected:  # exclude non motion corrected series
-                                    info[pressure1].append({'item': s.series_id, 'rec': 'corrected'})
-                                else:
-                                    info[pressure1].append({'item': s.series_id, 'rec': 'uncorrected'})
-                    	      if (s.dim3 == 16044) and ('fmri_2' in s.series_description):
-                    	          if s.is_motion_corrected:  # exclude non motion corrected series
-                                    info[pressure2].append({'item': s.series_id, 'rec': 'corrected'})
-                                else:
-                                    info[pressure2].append({'item': s.series_id, 'rec': 'uncorrected'})
-                        return info
+                            if template is None or not template:
+                                raise ValueError('Template must be a valid format string')
+                            return template, outtype, annotation_classes
+
+                        def infotodict(seqinfo):
+
+                            print(seqinfo)
+
+                            t1w = create_key('sub-{subject}/anat/sub-{subject}_T1w')
+                            dwi = create_key('sub-{subject}/dwi/sub-{subject}_run-{item:01d}_dwi')
+                            task1 = create_key('sub-{subject}/func/sub-{subject}_task-task1_rec-{rec}_run-{item:01d}_bold')
+                            task2 = create_key('sub-{subject}/func/sub-{subject}_task-task2_rec-{rec}_run-{item:01d}_bold')
+
+                            info = {t1w: [], dwi: [], task1: [], task2: []}
+
+                            for s in seqinfo:
+                                if (s.dim3 == 176) and ('t1' in s.series_description or 'T1' in s.series_description) and not s.is_derived: # and (s.dim4 == 1)
+                                    info[t1w] = [s.series_id]  # assign if a single series meets criteria
+                                if (s.dim3 == 3900) and (s.dim4 == 1) and ('dti' in s.series_description or 'DTI' in s.series_description):
+                                    info[dwi].append(s.series_id)  # append if multiple series meet criteria
+                                if (s.dim3 == 13650) and ('fmri_1' in s.series_description):
+                                    if s.is_motion_corrected:  # exclude non motion corrected series
+                                        info[task1].append({'item': s.series_id, 'rec': 'corrected'})
+                                    else:
+                                        info[task1].append({'item': s.series_id, 'rec': 'uncorrected'})
+                        	      if (s.dim3 == 16044) and ('fmri_2' in s.series_description):
+                        	          if s.is_motion_corrected:  # exclude non motion corrected series
+                                        info[task2].append({'item': s.series_id, 'rec': 'corrected'})
+                                    else:
+                                        info[task2].append({'item': s.series_id, 'rec': 'uncorrected'})
+                            return info
                   </code></pre>
           </section>
 
