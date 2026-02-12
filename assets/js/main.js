@@ -120,7 +120,7 @@
 						overlayOpacity: 0.85,
 						popupCloserText: '',
 						popupLoaderText: '',
-						selector: '.work-item a.image:not([data-poptrox="ignore"])',
+						selector: '.work-item a.image',
 						usePopupCaption: true,
 						usePopupDefaultStyling: false,
 						usePopupEasyClose: false,
