@@ -7,6 +7,7 @@
 	const caption = dialog.querySelector("figcaption");
 	const image = document.createElement("img");
 	caption.before(image);
+	const darkScheme = window.matchMedia("(prefers-color-scheme: dark)");
 
 	document.addEventListener("click", (event) => {
 		const link = event.target.closest("a[data-lightbox]");
@@ -14,7 +15,8 @@
 
 		event.preventDefault();
 		const thumbnail = link.querySelector("img");
-		image.src = link.href;
+		// Screenshots come in light and dark variants; show the one matching the page.
+		image.src = (darkScheme.matches && link.dataset.darkHref) || link.href;
 		image.alt = thumbnail ? thumbnail.alt : "";
 		caption.textContent = link.dataset.caption || "";
 		dialog.showModal();
