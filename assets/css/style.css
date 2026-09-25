@@ -244,7 +244,7 @@ a:hover {
 }
 
 .lead {
-	max-width: 36em;
+	max-width: 48em;
 	margin-top: 1.5rem;
 	font-size: clamp(1.1875rem, 1.05rem + 0.55vw, 1.4375rem);
 	line-height: 1.5;
