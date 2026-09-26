@@ -281,6 +281,17 @@ a:hover {
 	color: var(--accent);
 }
 
+@media (width < 24em) {
+	.pill-links {
+		gap: 0.375rem;
+	}
+
+	.pill-links a {
+		gap: 0.4rem;
+		padding-inline: 0.7rem 0.8rem;
+	}
+}
+
 @media (min-width: 46em) {
 	/* Portrait beside the name, so the work starts on the first screen */
 	.hero {
@@ -305,7 +316,11 @@ a:hover {
 /* Sections */
 
 .section {
-	padding-block: clamp(2.5rem, 5vw, 4rem);
+	padding-block: clamp(3rem, 5vw, 4rem);
+}
+
+.section + .section {
+	padding-top: 0;
 }
 
 .section-head {
@@ -467,20 +482,24 @@ a:hover {
 }
 
 @media (width < 46em) {
-	/* On phones the small tiles get their labels underneath instead of on top */
-	.pm-shot:not(.pm-shot-main) {
+	/* On phones the tiles get their labels underneath instead of on top */
+	.pm-shot {
 		overflow: visible;
 		margin-bottom: 1.25rem;
 	}
 
-	.pm-shot:not(.pm-shot-main) picture {
+	.pm-shot:not(.pm-shot-main) {
+		aspect-ratio: 5 / 3;
+	}
+
+	.pm-shot picture {
 		position: absolute;
 		inset: 0;
 		overflow: hidden;
 		border-radius: inherit;
 	}
 
-	.pm-shot:not(.pm-shot-main) .pm-shot-label {
+	.pm-shot .pm-shot-label {
 		top: calc(100% + 0.35rem);
 		bottom: auto;
 		left: 0.125rem;
@@ -553,6 +572,16 @@ a:hover {
 	background: var(--surface);
 	box-shadow: 0 0 0 1px var(--rule), var(--shadow);
 	aspect-ratio: 16 / 10;
+}
+
+@media (width < 46em) {
+	.project-media {
+		max-width: 26rem;
+	}
+}
+
+a[data-lightbox] {
+	cursor: zoom-in;
 }
 
 .project-media img {
